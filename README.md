@@ -4,7 +4,17 @@ What I propose with the "probabilistic IR" kind of turns around the way  things 
 
 I think this is feasible also from the end-user perspective, because there is a difference between AD and PPL-DSLs: you can't expect every writer of a mathematical function to anticipate it being used in AD code by marking it as @differentiable or whatever. But you can expect that from the writer of a probabilistic model, because non-standard evaluation in some form is inherently part of the whole probabilistic programming approach.
 
+
+
 # Single static sampling form
+
+As far as I see it, the lowest common denominator of all PPLs consists of 
+
+1. General Julia code: this can most conveniently be represented like normal Julia IR with SSA statements, branches, and blocks
+2. "Sampling statements": tildes, or assumptions/observations in Turing parlance, which relate names or values to distributions
+3. Variable names, which may be "complex", like containing indexing, fields, link functions, etc.
+
+So my idea was to just combine all that into an IR-like syntax.
 
 One of the nice properties of probabilistic programs is that logically, random variables already behave like SSA form -- you can only assign them once. But in something like Turing, assigning to "complex" ones, i.e., arrays, needs to be implemented by mutation of actual data structures, and that annoyed me a lot recently. 
 
@@ -41,6 +51,10 @@ being translated to
 
 The `x` in block 4 should be uniquely recoverable from the fact that before, we have already specified all the `x[n]`s. (I'm thinking of some kind of unification mechainsm for that).  When you actually want to run this program, you can then *choose* whether to implement it with an array backing, or something like a dictionary/trie-based trace structure.
 
+How this is then interpreted is left abstract. At least (almost) trivially, you can just sample from the prior by putting the variable names into a dictionary, and replacing the tildes with assignments to `rand` calls.  (The complication is that one may have to infer shapes and "unify" variables, like the `x[i]` and `x` above. But there must be at least one general solution to that.)
+
+A specific system can then define its own interpretation or even generate code out of this form. Everything is open to static or dynamic analysis. And an implemention might just accept a fragment of the general variant, e.g., free of stochastic control flow, or with restrictions the indexing of variable names.
+
 
 ## Normal and linear assignment
 
@@ -63,6 +77,17 @@ The next step is to perform the interpretation as partial evaluation given the o
 # Interpretation in a probability monad
 
 I think you can interpret the represantion in a monadic way as well, a la Giry monads and the like. Maybe with some fancy nonstandard lambda calculi for the names, and CPS for blocks and jumps.
+
+Oh, and except form the branching, the blokcs can be directly interpreted in a monad:
+
+```
+...
+let t2 = z[t1] in
+let t3 = mu[t2] in
+Normal(t3) >>= (\<x[t1]> ->
+let t4 = t1 < tN in
+...
+```
 
 ## Bookkeeping names with locally nameless lambdas
 
