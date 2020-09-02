@@ -1,4 +1,4 @@
-# An intermediate form for probabilistic programs with three possible representations
+# An intermediate representation for probabilistic programs with multiple interpretations
 
 What I propose with the "probabilistic IR" kind of turns around the way  things are constructed right now in all the Julia approaches I've seen. Instead of starting from your sampling function/generative function/model, which is evaluated to get out graphs from it, you start from a representation of the model that already is "graphical", and derive evaluators from it. And if that representation looks like Julia IR, it doesn't matter whether the model is dynamic -- you always work on a fixed, full program.
 
