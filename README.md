@@ -64,12 +64,14 @@ A specific system can then define its own interpretation or even generate code o
 - Structs/`getproperty`
 - Bijector link functions
 
+Necessary to "unify names".  Copatterns?  See: https://cs.stackexchange.com/questions/129702/semantics-of-write-once-variables-for-complex-data-structures
+
 
 # Interpretation in Julia IR
 
 ## Model compilation as partial specialization
 
-The next step is to perform the interpretation as partial evaluation given the observed data and the sampling algorithm, Mjolnir-style. Then you can "lower" the abstract probabilistic model to concrete Julia IR "optimized" for that specific inference.
+The next step is to perform the interpretation as partial evaluation given the observed data and the sampling algorithm, Mjolnir-style. Then you can "lower" the abstract probabilistic model to concrete Julia IR "optimized" for that specific inference.  If we go back to the above example, supposedly, `N`, the size of `x`, depends on the size of the input. So if we partially evaluate the IR on constant input,  the loop vanishes and a series of `x[1] = ...; ...; x[N] = ...` remains. In that case, “shape” inference should be easy.
 
 ## Correspondence with Julia surface syntax
 
@@ -92,5 +94,6 @@ let t4 = t1 < tN in
 ## Bookkeeping names with locally nameless lambdas
 
 Kappa calculus? Explicit substitutions? De Bruijn levels, locally nameless terms representation?
+
 
 ## Blocks as coroutines/CPS functions
