@@ -1,3 +1,12 @@
+# Prelude
+
+A couple of words about where I'm coming from: I have a background in ML, but also functional programming, programming language theory, DSLs, and all that stuff.  My master's thesis is about a system that tracks Julia IR, using IRTools, of Turing models, to extract a "semantic representation" of what's going on in a model in probabilistic terms.  During that, I started contributing a bit to Turing and DynamicPPL, with a focus on the the model macro and the internal model representation.  All in all, a lot of metaprogramming.
+
+Currently, Turing models are very primitive in this respect: a data structure called `VarInfo` contains a map from variable names to values, the accumulated log-likelihood, and some other metadata.  During my project, I noticed that retrospectively fitting structure onto this is not ideal, and for proper analysis, it would be nice to begin with a better representation from the start.  The two main difficulties were matching of variable names (e.g., when I need `x[1:3][2]`, but the model contains `x[1:10]`), and getting rid of array mutations that shadow actual data dependencies (e.g., one has an array `x`, samples `x[1]`, writes it to `x` with `setindex!`, and then uses `getindex(x, i)` somewhere downstream).  I thought about writing a more versatile kind of "dictionary with variable name keys", but that wouldn't satisfactorily solve all of the issues.
+
+From these difficulties that occured during my quest of extracting Gibbs conditionals, together with the knowledge about DynamicPPL's internals, I developed the following understanding of what an ideal representation of probabilistic models for the purpuse of analysis would be for me.
+
+
 # An intermediate representation for probabilistic programs with multiple interpretations
 
 What I propose with the "probabilistic IR" kind of turns around the way  things are constructed right now in all the Julia approaches I've seen. Instead of starting from your sampling function/generative function/model, which is evaluated to get out graphs from it, you start from a representation of the model that already is "graphical", and derive evaluators from it. And if that representation looks like Julia IR, it doesn't matter whether the model is dynamic -- you always work on a fixed, full program.
@@ -6,7 +15,7 @@ I think this is feasible also from the end-user perspective, because there is a 
 
 
 
-# Single static sampling form
+# "Single static sampling form"
 
 As far as I see it, the lowest common denominator of all PPLs consists of 
 
@@ -56,7 +65,7 @@ How this is then interpreted is left abstract. At least (almost) trivially, you 
 
 A specific system can then define its own interpretation or even generate code out of this form. Everything is open to static or dynamic analysis. And an implemention might just accept a fragment of the general variant, e.g., free of stochastic control flow, or with restrictions the indexing of variable names.
 
-Note that there is within the representation no distinction of assumed and observed variables, as in Turing.  This allows 
+Note that there is within the representation no distinction of assumed and observed variables, as in Turing.  This gives more freedom in evaluation, without having to resort to things like the "Prior context" in DynamicPPL. 
 
 
 ## Normal and tilde assignment
@@ -92,11 +101,15 @@ Perhaps they can be useful in intermediate transformations, after we have specia
 
 ## Lenses, unifiable link functions, and first class names
 
-- Arrays/`getindex`
-- Structs/`getproperty`
-- Bijector link functions
+A crucial part is the semantics of named variables.  The problem can, I think, be generalized to arbitrary "link functions" that can be described through structural and functional lenses:
 
-Necessary to "unify names".  Copatterns?  See: https://cs.stackexchange.com/questions/129702/semantics-of-write-once-variables-for-complex-data-structures
+- Arrays/`getindex`: `x[1:10][1] ~ D`
+- Structs/`getproperty`: `foo.bar[1].baz ~ D`
+- Bijector link functions: `log(x[1]) ~ D`
+
+What I still need to figure out is how to properly "unify names".  Lenses + copatterns + unification?  See: https://cs.stackexchange.com/questions/129702/semantics-of-write-once-variables-for-complex-data-structures
+
+Another part, altough minor, is to make sure the "write once" semantics: random variables aren't variables that can be "written to" -- they are definitions.  But that should be easier: SSA form is write-once already, in a sense; and a solution based on (co-)pattern matching is also intrinsically not based on memory locations, but unification.
 
 
 # Interpretation in Julia IR
@@ -186,6 +199,8 @@ Kappa calculus? Explicit substitutions? De Bruijn levels, locally nameless terms
 
 
 ## Blocks as coroutines/CPS functions
+
+I haven't yet found out how to properly deal with blocks and block arguments.  Trivially, each block can be transformed into a function from all arguments and all free SSA variables to it's body, and then branches are tail calls.  However, this doesn't seem the nicest idea.  Maybe a solution exists in [Kelsey, 1995](https://doi.org/10.1145/202530.202532).
 
 
 # Possible evaluators/semantics
