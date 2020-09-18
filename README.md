@@ -20,8 +20,8 @@ I think this is feasible also from the end-user perspective, because there is a 
 As far as I see it, the lowest common denominator of all PPLs consists of 
 
 1. General Julia code: this can most conveniently be represented like normal Julia IR with SSA statements, branches, and blocks
-2. "Sampling statements": tildes, or assumptions/observations in Turing parlance, which relate names or values to distributions
-3. Variable names, which may be "complex", like containing indexing, fields, link functions, etc.
+2. "Sampling statements": tildes, or assumptions/observations in Turing parlance, which relate names or values to distributions in an immutable way -- "write once" assignment with special semantic meaning
+3. Variable names, which may be "complex", like containing indexing, fields, link functions, etc., that can be identified in a structured way
 
 So my idea was to just combine all that into an IR-like syntax.
 
@@ -29,7 +29,7 @@ One of the nice properties of probabilistic programs is that logically, random v
 
 What I would like to have is a SSA language with a semantics in mind that gets rid of this need, by allowing you to use "complex names", that are unified as needed. In essence, this works like a structural equation model in SSA form, extended with control flow, e.g. the following fragment
 
-```
+```julia
 n = 1
 while n <= N
     {x[n]} ~ Normal({mu[z[n]]})
@@ -40,7 +40,7 @@ end
 
 being translated to an equivalent of
 
-```
+```julia
 1:
   goto 2 (1)
 2 (%1):
