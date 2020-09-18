@@ -2,7 +2,7 @@
 
 A couple of words about where I'm coming from: I have a background in ML, but also functional programming, programming language theory, DSLs, and all that stuff.  My master's thesis is about a system that tracks Julia IR, using IRTools, of Turing models, to extract a "semantic representation" of what's going on in a model in probabilistic terms.  During that, I started contributing a bit to Turing and DynamicPPL, with a focus on the the model macro and the internal model representation.  All in all, a lot of metaprogramming.
 
-Currently, Turing models are very primitive in this respect: a data structure called `VarInfo` contains a map from variable names to values, the accumulated log-likelihood, and some other metadata.  During my project, I noticed that retrospectively fitting structure onto this is not ideal, and for proper analysis, it would be nice to begin with a better representation from the start.  The two main difficulties were matching of variable names (e.g., when I need `x[1:3][2]`, but the model contains `x[1:10]`), and getting rid of array mutations that shadow actual data dependencies (e.g., one has an array `x`, samples `x[1]`, writes it to `x` with `setindex!`, and then uses `getindex(x, i)` somewhere downstream).  I thought about writing a more versatile kind of "dictionary with variable name keys", but that wouldn't satisfactorily solve all of the issues.
+Currently, Turing models are very primitive in this respect: a data structure called `VarInfo` contains a map from variable names to values, the accumulated log-likelihood, and some other metadata.  During my project, I noticed that retrospectively fitting structure onto this is not ideal, and for proper analysis, it would be nice to begin with a better representation from the start.  The two main difficulties were matching of `VarName`s (e.g., when I need `x[1:3][2]`, but the model contains `x[1:10]`), and getting rid of array mutations that shadow actual data dependencies (e.g., one has an array `x`, samples `x[1]`, writes it to `x` with `setindex!`, and then uses `getindex(x, i)` somewhere downstream).  I thought about writing a more versatile kind of "dictionary with variable name keys", but that wouldn't satisfactorily solve all of the issues.
 
 From these difficulties that occured during my quest of extracting Gibbs conditionals, together with the knowledge about DynamicPPL's internals, I developed the following understanding of what an ideal representation of probabilistic models for the purpuse of analysis would be for me.
 
@@ -20,8 +20,8 @@ I think this is feasible also from the end-user perspective, because there is a 
 As far as I see it, the lowest common denominator of all PPLs consists of 
 
 1. General Julia code: this can most conveniently be represented like normal Julia IR with SSA statements, branches, and blocks
-2. "Sampling statements": tildes, or assumptions/observations in Turing parlance, which relate names or values to distributions in an immutable way -- "write once" assignment with special semantic meaning
-3. Variable names, which may be "complex", like containing indexing, fields, link functions, etc., that can be identified in a structured way
+2. "Sampling statements": tildes, or assumptions/observations in Turing parlance, which relate names or values to distributions in an immutable way
+3. Variable names, which may be "complex", like containing indexing, fields, link functions, etc., that can be identified/analyzed in a structured way
 
 So my idea was to just combine all that into an IR-like syntax.
 
