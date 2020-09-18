@@ -90,14 +90,45 @@ Conversely, of course, we can have "constant observations":
 1 ~ Poisson(3.0)
 ```
 
-It remains the question: would it ever make sense to allow anonymous random variables?
+or even
+
+```julia
+x = something()
+f(x) ~ Dirichlet(10.0)
+```
+
+(is that ever useful?)
+
+We can also have anonymous random variables:
 
 ```julia
 {%1} ~ Normal() # instead of {x}
 {y} ~ Normal({%1})
 ```
 
-Perhaps they can be useful in intermediate transformations, after we have specialized on a query: when `x` is integrated out, we don't need to name it anymore, and don't want to see its name in the resulting chain object.
+Perhaps they can be useful in intermediate transformations, after we have specialized on a query: when `x` is integrated out, we don't need to name it anymore, and don't want to see its name in the resulting chain object.  
+
+Or they are just not important; e.g., sampling from a geometric distribution:
+
+```julia
+i = 1
+while ({} ∼ Bernoulli(0.5))
+  i = i + 1
+end
+{n} = i
+```
+
+Later on, you can even write `cont = false` without problems, since `cont` never was a variable name, but just the location the value of an anonymous variable has been assigned to.
+
+We can also directly assign values of random variables to Julia variables:
+
+```julia
+x = zeros(N)
+x[1] = {x[1]} ~ Normal()
+{x[2]} ~ Normal(x[1])
+```
+
+As you see, this is getting dangerous, since now `{x[1]}` and `{x[2]}` aren't related anymore in the resulting IR, because in lowered code, `x` was just mutably written to using `setindex!`.
 
 ## Lenses, unifiable link functions, and first class names
 
