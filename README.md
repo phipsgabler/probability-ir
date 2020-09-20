@@ -11,6 +11,8 @@ From these difficulties that occured during my quest of extracting Gibbs conditi
 
 What I propose with the "probabilistic IR" kind of turns around the way  things are constructed right now in all the Julia approaches I've seen. Instead of starting from your sampling function/generative function/model, which is evaluated to get out graphs from it, you start from a representation of the model that already is "graphical", and derive evaluators from it. And if that representation looks like Julia IR, it doesn't matter whether the model is dynamic -- you always work on a fixed, full program.
 
+The advantage of this kind of approach, besides solving "compiler domain" problems like the ones I mentioned above, is that it provides a different kind of common abstraction for PPLs.  Often, people are writing "bridge code" to allow PPL interaction: there is invented a common interface that multiple PPL systems can be fit under, and then models in each can be used from within the other at evaluation.  This is due to the lack of division of a system into an evalator and a model specification part (DynamicPPL is supposed to be a factored out model system, but currently way too specialized to Turing).  I believe that this is in many cases more feasible and general than defining a common interface for evaluators: the latter tend to assume much more about the internals, while model syntax is essentially fixed: the notation of random variables used in model specification by hand, extended through general Julia syntax.
+
 I think this is feasible also from the end-user perspective, because there is a difference between AD and PPL-DSLs: you can't expect every writer of a mathematical function to anticipate it being used in AD code by marking it as `@differentiable` or whatever. But you _can_ expect that from the writer of a probabilistic model, because non-standard evaluation in some form is inherently part of the whole probabilistic programming approach.
 
 
@@ -67,6 +69,23 @@ A specific system can then define its own interpretation or even generate code o
 
 Note that there is within the representation no distinction of assumed and observed variables, as in Turing.  This gives more freedom in evaluation, without having to resort to things like the "Prior context" in DynamicPPL. 
 
+
+We can even have "crazy" models few if any current PPL syntaxes can currently accept:
+
+```julia
+{G} ~ DirichletProcess(5.0)
+{mu[1:N]} .~ {G}
+{y[1:N]} .~ Normal.({mu})
+```
+
+or
+
+```julia
+{f} ~ GP(kernel)
+{y[1:N]} = {f}.(x[1:N])
+```
+
+At least write them.  If anyone cares to invent and implement a transformation that will transform these into a practical form in a general way.
 
 ## Normal and tilde assignment
 
@@ -142,12 +161,18 @@ What I still need to figure out is how to properly "unify names".  Lenses + copa
 
 Another part, altough minor, is to make sure the "write once" semantics: random variables aren't variables that can be "written to" -- they are definitions.  But that should be easier: SSA form is write-once already, in a sense; and a solution based on (co-)pattern matching is also intrinsically not based on memory locations, but unification.
 
+Maybe it will be necessary (or just useful?) to classify names into "static" and "dynamic" ones.  A static name is one that contains only constants.  This can change after partial evaluation: for example, a loop depending on the size of the observed values might become unrolled into a sequence of known size of tildes.  On the other hand, if the loop remains, it must depend on a random variable dependent on the input, and it's body dynamic.  Similar for probabilistic `if`s.  This classification gives a clear definition of dynamicity of (parts of) models: a model is static, if all variables within it are static.
+
+Maybe there is a way to subsume or interpret models as distributions 
+
 
 # Interpretation in Julia IR
 
 ## Model compilation as partial specialization
 
 The next step is to perform the interpretation as partial evaluation given the observed data and the sampling algorithm, Mjolnir-style. Then you can "lower" the abstract probabilistic model to concrete Julia IR "optimized" for that specific inference.  If we go back to the above example, supposedly, `N`, the size of `x`, depends on the size of the input. So if we partially evaluate the IR on constant input,  the loop vanishes and a series of `x[1] = ...; ...; x[N] = ...` remains. In that case, “shape” inference should be easy.
+
+Ideally, the "compilation step" is a function from a model, an evaluator, and a query to something executable.  Alternative (although probably less efficient or more complicated), from model + evalator to (query -> executable).
 
 ## Correspondence with Julia surface syntax
 
@@ -208,6 +233,20 @@ would probably consiste of just of a constant `changepoint` of an anonymous type
 This can then be used in generated functions operating on `changepoint` (e.g., dynamos), that can inspect the model, transform it, and return actual Julia code.  This would suffice for use cases such as sampling from the prior or the joint, or for conversion to a log-probability evaluator.  If things like specialization on the input data are required, then the translation to Julia would have happen at runtime, of course.
 
 
+## Static analysis
+
+First, there should obviously be an interfact to allow seamless queries of all kinds of dependencies between variables, working with and categorizing static and dynamic dependencies (i.e., blocks depending on variables through conditional branches).  This will allow probabilisic analysis of models, e.g., calculation of Markov blankets and the like, as well as help transformations, such as to factor graphs. 
+
+Then, there is also a load of already known concepts from compiler theory and static analysis that may not be known to PPL folks, but can nevertheless be sucessfully utilized already at the level of the "evalation transformation": for example, a certain partial evalation might be followed by optimization passes, or require some form of dependency information for which algorithms are well known.
+
+There are several possible modes of operation on the IR: 
+
+- internal transformation, such as:
+  - specialization on a constant parameter or observation, resulting in a new model in IR form
+  - exploitation of probabilistic knowledge, like collapsing or conjugacy exploitation, or "disaggretating" a non-parametric model into something sampleable (e.g., re-representing a Dirichlet process model with a CRP-based one)
+  - intervention, or other changes of the probabilistic structure
+- static analysis or abstract interpretation only for analysis purposes: e.g., extraction of Gibbs conditionals
+- evalation -- the transformation of the IR into executable code (Julia IR for a specific PPL system, for example) or runtime model structure (e.g., 
 
 # Interpretation in a probability monad
 
