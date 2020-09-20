@@ -163,7 +163,7 @@ Another part, altough minor, is to make sure the "write once" semantics: random 
 
 Maybe it will be necessary (or just useful?) to classify names into "static" and "dynamic" ones.  A static name is one that contains only constants.  This can change after partial evaluation: for example, a loop depending on the size of the observed values might become unrolled into a sequence of known size of tildes.  On the other hand, if the loop remains, it must depend on a random variable dependent on the input, and it's body dynamic.  Similar for probabilistic `if`s.  This classification gives a clear definition of dynamicity of (parts of) models: a model is static, if all variables within it are static.
 
-Maybe there is a way to subsume or interpret models as distributions 
+Maybe there is a way to subsume or interpret models as distributions over traces.  For a static model, the key space of the trace is deterministic; for dynamic models, it is not, altough it could consist of an indexed-family-like thing, or "stochastic [dependent sum](https://en.wikipedia.org/wiki/Dependent_type#%7F'%22%60UNIQ--postMath-00000016-QINU%60%22'%7F_type)": `\sum_{n ~ Poisson()} [{x[i]} for i = 1:n]`.
 
 
 # Interpretation in Julia IR
