@@ -90,7 +90,7 @@ We can even have "crazy" models few if any current PPL syntaxes can currently ac
 
 ```julia
 {G} ~ DirichletProcess(5.0)
-{mu[1:N]} .~ {G}
+{mu[1:N]} .~ iid({G}, N) # aka `filldist`
 {y[1:N]} .~ Normal.({mu})
 ```
 
