@@ -39,6 +39,11 @@ As far as I see it, the lowest common denominator (or is it least upper bound?) 
 
 So my idea was to just combine all that into an IR-like syntax.  This amounts to writing down a directed graphical model with deterministic and stochastic nodes, named random variables, generalized to programs (i.e., you can have dynamic structure due to branching and recursion).
 
+A model in this kind of format then defines an abstract and uninterpreted parametrized density joint density function over its trace (as given through the unified name set) and return value, factorized into primitive statements and blocks.
+
+
+## Choices of syntax
+
 One of the nice properties of probabilistic programs is that logically, random variables already behave like SSA form -- you can only assign them once. But in something like Turing, assigning to "complex" ones, i.e., arrays, needs to be implemented by mutation of actual data structures, and that annoyed me a lot recently. 
 
 What I would like to have is a SSA language with a semantics in mind that gets rid of this need, by allowing you to use "complex names", that are unified as needed. In essence, this works like a structural equation model in SSA form, extended with control flow, e.g. the following fragment
@@ -81,7 +86,6 @@ A specific system can then define its own interpretation or even generate code o
 
 Note that there is within the representation no distinction of assumed and observed variables, as in Turing.  This gives more freedom in evaluation, without having to resort to things like the `Prior` context in DynamicPPL. 
 
-
 We can even have "crazy" models few if any current PPL syntaxes can currently accept:
 
 ```julia
@@ -102,7 +106,7 @@ At least write them.  If anyone cares to invent and implement a transformation t
 
 ## Normal and tilde assignment
 
-Note that we get a feature for free which are not part of Turing, yet:
+Note that we get a feature for free which are not part of Turing (or most other modelling languages) yet:
 
 ```julia
 {x} ~ Normal()
@@ -178,6 +182,8 @@ Maybe it will be necessary (or just useful?) to classify names into "static" and
 Maybe there is a way to subsume or interpret models as distributions over traces.  For a static model, the key space of the trace is deterministic; for dynamic models, it is not, altough it could consist of an indexed-family-like thing, or "stochastic [dependent sum](https://en.wikipedia.org/wiki/Dependent_type#%7F'%22%60UNIQ--postMath-00000016-QINU%60%22'%7F_type)": `\sum_{n ~ Poisson()} [{x[i]} for i = 1:n]`. Todo: look at trace types.
 
 Another possibility is to use static analysis to extract local dynamic parts into combinators, like Soss and Gen's, or into local Markov kernels (which probably is just collapsing?).
+
+Perhaps it is possible to construct an indexed free monad over statements, whose bind operator performs the name unification at the trace type level.
 
 
 # Interpretation in Julia IR
