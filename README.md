@@ -1,4 +1,15 @@
-# Prelude
+# An intermediate representation for probabilistic programs with multiple interpretations
+
+## Abstract
+
+Universal PPLs have as their goal to let the user write down every model the language allows, and still be able to do inference on it. Of course at the “edges” of the space of reasonable programs, tradeoffs need to be made to still be able to do that. I’d like split up this conjuction: create a format in which you can “write down” every possible model of a very large class, without a priori having to deal with the restrictions of inference. Then for each model, you can choose a suitable, perhaps specialized, backend that understands the fragment of the model language you used.
+
+What I propose is a "probabilistic IR", that kind of turns around the way things are constructed right now in all the Julia approaches I've seen. Instead of starting from your sampling function/generative function/model, which is evaluated to get out graphs from it, you start from a representation of the model that already is "graphical", and derive evaluators from it. And if that representation looks like Julia IR, it doesn't matter whether the model is complicated, nonparametric, dynamic -- you always work on a fixed, full program in a specified syntax.
+
+
+## Introduction
+
+### Prelude
 
 A couple of words about where I'm coming from: I have a background in ML, but also functional programming, programming language theory, DSLs, and all that stuff.  My master's thesis is about a system that tracks Julia IR, using IRTools, of Turing models, to extract a "semantic representation" of what's going on in a model in probabilistic terms.  During that, I started contributing a bit to Turing and DynamicPPL, with a focus on the the model macro and the internal model representation.  All in all, a lot of metaprogramming.
 
@@ -7,15 +18,7 @@ Currently, Turing models are very primitive in this respect: a data structure ca
 From these difficulties that occured during my quest of extracting Gibbs conditionals, together with the knowledge about DynamicPPL's internals, I developed the following understanding of what an ideal representation of probabilistic models for the purpuse of analysis would be for me.  Probably the answer to any confusion I have caused is this: I come from a metaprogramming/analysis perspective, with interest in programming language design. I wanted variable names and dependencies to behave nicely, and primarily a closed, elegant language. Many PPL people probably come from an inference perspective, putting the language design problem second to that. “I want to write all the models” vs. “I want to do all the inference”. But I also try to close a bridge to the mostly theoretical, FP-based approaches of just formalizing probabilistic programs.
 
 
-# An intermediate representation for probabilistic programs with multiple interpretations
-
-## Abstract
-
-What I propose with the "probabilistic IR" kind of turns around the way  things are constructed right now in all the Julia approaches I've seen. Instead of starting from your sampling function/generative function/model, which is evaluated to get out graphs from it, you start from a representation of the model that already is "graphical", and derive evaluators from it. And if that representation looks like Julia IR, it doesn't matter whether the model is dynamic -- you always work on a fixed, full program.  
-
-## Introduction
-
-Universal PPLs have as their goal to let the user write down every model the language allows, and still be able to do inference on it. Of course at the “edges” of the space of reasonable programs, tradeoffs need to be made to still be able to do that. I’d like to get rid of the second part of that “and”. I want a format in which you can “write down” every possible model of a very large class, without a priori having to deal with the restrictions of inference. Then for each model, you can choose a suitable, perhaps specialized, backend that understands the fragment of the model language you used.
+### Background
 
 The separation between the “specification abstraction” and “evaluator abstraction”, across multiple implementations, would be something that I haven’t really seen before – everyone’s always proposing a complete system, right? The closest thing would be the formalization attempts of probabilistic models with monads and types, but that is more semantic than syntactic.  We do have abstracted “pure inference” libraries, that really only take a function and do their work, but they aren’t really a PPL. There’s some “linguae frankae” like the Stan/JAGS syntax, but it’s also somewhat restricted and not independently maintained – the ones coming later just chose to take over the same kind of input format for their own implemenation.  What I’m thinking of is a model specification form in its own right, that has more general analysis capabilites, and can then be transformed town to whatever the evaluator requires – into CPS, as a monad, as a DAG, as a factor graph, you name it.
 
@@ -23,23 +26,23 @@ The advantage of this kind of approach, besides solving "compiler domain" proble
 
 I think this is feasible also from the end-user perspective, because there is a difference between AD and PPL-DSLs: you can't expect every writer of a mathematical function to anticipate it being used in AD code by marking it as `@differentiable` or whatever. But you _can_ expect that from the writer of a probabilistic model, because non-standard evaluation in some form is inherently part of the whole probabilistic programming approach.
 
-## Summary of other Julia PPL approaches
+### Summary of existing Julia PPL approaches
 
 - Turing/DynamicPPL: a model is a function that, applied to arguments, produces an object containing a closure, the "model function".  This closure contains code very similar to the original model code, with the tildes replaced by "tilde functions" that get some metadata (the lhs and rhs of the expression, for example), and chain through the `VarInfo` object.  The closure can then be run with a sampler in different "contexts", which determine how the tilde functions work: to run the model as a generative function, sampling from the prior, evalating the log-joint, or more exotic things necessary for VI etc.
 - Gen: what a "model" is is left open in principle, and only defined by the "generated function interface" of eight (?) methods `generate`, `update`, etc.  These allow interaction between submodels: a sampling algorithm can use the interface on any model, and gets back only concrete values or traces, which are in turn also only defined by an abstract interface (so different models might have different optimized versions of traces).  But there are also two built-in "modelling languages", the dynamic one and the static one.  In the dynamic language, a model is a function that just runs the model code as written, logging the traced variables on a tree-dictionary like structure.  The static language is a rather restricted DSL based on normal Julia code, and stored internally as a graph, allowing more efficient (re)evaluation, since the key space of the trace is known in advance.
 - Omega: The idea is, IIUC, modelled on the mathematical definition of random variables and probability spaces.  RVs can be created from a common source of randomness, a kind of underlying extensible probability space.  The association between RVs and the underlying events is remembered to model independence structures.  Then, the RVs can be combined in pretty much arbitratry ways.  The interface is a bit more general than in sampling-based languages like Gen and Turing, since one of the goals is to support arbitrary constraints. Additionally, interventions and other functions for causal inference are supported.
 - ForneyLab: less a PPL with an interface for modelling -- more like an implementation of factor graphs with a higher-level interface for constructing them.  Key point is the automatic derivation of message passing based inference algorithms from the graphs.
-- Soss: a PPL with general model syntax.  Execution is based on complete symbolic analysis of the model, and producing generated functions.
-- Stheno: a combiator interface for  Gaussian Processes, supporting a very general model syntax and complex queries.
+- Soss: a PPL with general model syntax.  Execution is based on complete symbolic analysis of the model, and producing generated functions.  The internal representation consists of a list of assignments and sampling statments, similar to what the probabilistic IR would contain.  Insofar, this is probably closest to the syntactic perspecive on model programs that I'm after.
+- Stheno: a combiator interface and DSL for inference with Gaussian Processes, supporting a very general model syntax and complex queries.
 - Jaynes: An interface to Gen, based on IR analysis: instead of using one of the Gen modelling languages, a regular function with overloaded `rand` methods can be used.  This function is evaluated through IRTools dynamos that produce efficient implementations of the GFI methods.
 - Poirot: Another IR-based model specification language that works with normal functions and IR transformations, but in a style similar to Church (explicit `observe` calls etc.).  Puerly experimental for now.
 
 Of these, Gen seems like the best candidate for an abstraction of a "model evaluation interface" for sampling-based approaches.  Omega, Soss, and ForneyLab could make good general evaluators for abstracted models in the IR as well, and Stheno for the fragment of models describing Gaussian Processes (and we could imagine something similar for nonparametric models).  The approaches of Jaynes and Poirot could make a good start for the "front end" -- the way by which a user/modeller writes their model down, and through which it is turned into the intermediate representation.  Jaynes especially also has begun the next step: the transformation from the abstract model to generated evaluation code.
 
 
-# "Single static sampling form"
+## "Single static sampling form"
 
-As far as I see it, the lowest common denominator (or is it least upper bound?) of all PPL modelling parts consists of 
+As far as I see it, the lowest common denominator (or is it least upper bound?) of all the PPL modelling approaches consists of 
 
 1. General Julia code: this can most conveniently be represented like normal Julia IR with SSA statements, branches, and blocks
 2. "Sampling statements": tildes, or assumptions/observations in Turing parlance, which relate names or values to distributions in an immutable way
@@ -47,10 +50,10 @@ As far as I see it, the lowest common denominator (or is it least upper bound?) 
 
 So my idea was to just combine all that into an IR-like syntax.  This amounts to writing down a directed graphical model with deterministic and stochastic nodes, named random variables, generalized to programs (i.e., you can have dynamic structure due to branching and recursion).
 
-A model in this kind of format then defines an abstract and uninterpreted parametrized density joint density function over its trace (as given through the unified name set) and return value, factorized into primitive statements and blocks.
+A model in this kind of format then defines an abstract and uninterpreted parametrized joint density function over its trace (as given through the unified name set) and return value, factorized into primitive statements and blocks.
 
 
-## Choices of syntax
+### Choices of syntax
 
 One of the nice properties of probabilistic programs is that logically, random variables already behave like SSA form -- you can only assign them once. But in something like Turing, assigning to "complex" ones, i.e., arrays, needs to be implemented by mutation of actual data structures, and that annoyed me a lot recently. 
 
@@ -97,7 +100,8 @@ Note that there is within the representation no distinction of assumed and obser
 We can even have "crazy" models few if any current PPL syntaxes can currently accept:
 
 ```julia
-{G} ~ DirichletProcess(5.0)
+# An infinite mixture model, the nonparametric equivalent of a Gaussian mixture model
+{G} ~ DirichletProcess(5.0, G_0)
 {mu[1:N]} .~ iid({G}, N) # aka `filldist`
 {y[1:N]} .~ Normal.({mu})
 ```
@@ -105,14 +109,14 @@ We can even have "crazy" models few if any current PPL syntaxes can currently ac
 or
 
 ```julia
-# This could actually be evaluated in Stheno, I guess:
+# A simple Gaussian Process model -- this could actually be evaluated in Stheno, I guess:
 {f} ~ GP(kernel)
 {y[1:N]} = {f}.(x[1:N])
 ```
 
 At least write them.  If anyone cares to invent and implement a transformation that will transform these into a practical form in a general way.
 
-## Normal and tilde assignment
+### Equals and tildes: assignment and sampling
 
 Note that we get a feature for free which are not part of Turing (or most other modelling languages) yet:
 
@@ -173,7 +177,7 @@ x[1] = {x[1]} ~ Normal()
 
 As you see, this is getting dangerous, since now `{x[1]}` and `{x[2]}` aren't related anymore in the resulting IR, because in lowered code, `x` was just mutably written to using `setindex!`.
 
-## Lenses, unifiable link functions, and first class names
+### Lenses, unifiable link functions, and first class names
 
 A crucial part is the semantics of named variables.  The problem can, I think, be generalized to arbitrary "link functions" that can be described through structural and functional lenses:
 
@@ -194,15 +198,15 @@ Another possibility is to use static analysis to extract local dynamic parts int
 Perhaps it is possible to construct an indexed free monad over statements, whose bind operator performs the name unification at the trace type level.
 
 
-# Interpretation in Julia IR
+## Implementation and Interpretation in Julia
 
-## Model compilation as partial specialization
+### Model compilation as partial specialization
 
 The next step is to perform the interpretation as partial evaluation given the observed data and the sampling algorithm, Mjolnir-style. Then you can "lower" the abstract probabilistic model to concrete Julia IR "optimized" for that specific inference.  If we go back to the above example, supposedly, `N`, the size of `x`, depends on the size of the input. So if we partially evaluate the IR on constant input,  the loop vanishes and a series of `x[1] = ...; ...; x[N] = ...` remains. In that case, “shape” inference should be easy.
 
 Ideally, the "compilation step" is a function from a model, an evaluator, and a query to something executable.  Alternatively (although probably less efficient or more complicated), from model + evalator to (query -> executable).
 
-## Correspondence with Julia surface syntax
+### Correspondence with Julia surface syntax
 
 The expansion of 
 
@@ -261,7 +265,7 @@ would probably consiste of just of a constant `changepoint` of an anonymous type
 This can then be used in generated functions operating on `changepoint` (e.g., dynamos), that can inspect the model, transform it, and return actual Julia code.  This would suffice for use cases such as sampling from the prior or the joint, or for conversion to a log-probability evaluator.  If things like specialization on the input data are required, then the translation to Julia would have happen at runtime, of course.
 
 
-## Static analysis
+### Static analysis
 
 First, there should obviously be an interfact to allow seamless queries of all kinds of dependencies between variables, working with and categorizing static and dynamic dependencies (i.e., blocks depending on variables through conditional branches).  This will allow probabilisic analysis of models, e.g., calculation of Markov blankets and the like, as well as help transformations, such as to factor graphs. 
 
@@ -287,7 +291,7 @@ Example usages:
 - Give me the model after the intervention `do(Z = z)`
 - Turn this infinite mixture model into a Chinese Restaurant Process with centers `z`, and give me a Turing model for it
 
-# Interpretation in a probability monad
+## Interpretation in a probability monad
 
 I think you can interpret the represantion in a monadic way as well, a la Giry monads and the like. Maybe with some fancy nonstandard lambda calculi for the names, and CPS for blocks and jumps.
 
@@ -302,17 +306,23 @@ let t4 = t1 < tN in
 ...
 ```
 
-## Bookkeeping names with locally nameless lambdas
+There is existing work on this (related to trace types and PPL distribution types), but the approach to be taken here would probably be less compositional, and rather based on whole-program analysis.  Especially for the case of unification of families of indexed names.
+
+It must be noted that the interpretation of a probabilistic IR program is supposed to be "free" -- all statements should be left uninterpreted until evaluation by an inference system.  That means that only arity, dependence, and sequence are fixed, not concrete return types.  Still, "shape inference" of names is possible at that level, as well as many other analyses and transformations.
+
+### Bookkeeping names with locally nameless lambdas
+
+First class names can just be fields in anonymous records, but we can also try to go deeper.  Maybe there can be a simpler functional calculus to interact with them.
 
 Kappa calculus? Explicit substitutions? De Bruijn levels, locally nameless terms representation?
 
 
-## Blocks as coroutines/CPS functions
+### Blocks as coroutines/CPS functions
 
 I haven't yet found out how to properly deal with blocks and block arguments.  Trivially, each block can be transformed into a function from all arguments and all free SSA variables to it's body, and then branches are tail calls.  However, this doesn't seem the nicest idea.  Maybe a solution exists in [Kelsey, 1995](https://doi.org/10.1145/202530.202532).
 
 
-# Possible evaluators/semantics
+## Possible evaluators/semantics
 
 A common query syntax would also be appropriate.  I think this is easier to find than the modelling syntax or the abstract evalator interface.
 
@@ -333,7 +343,7 @@ posterior = @P(theta, lambda) | @P(x = data)
 m3 = compile(model, posterior, VI())
 ```
 
-## Causal queries
+### Causal queries
 
 TODO: see what Omega does.
 
