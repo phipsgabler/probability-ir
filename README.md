@@ -197,6 +197,31 @@ Another possibility is to use static analysis to extract local dynamic parts int
 
 Perhaps it is possible to construct an indexed free monad over statements, whose bind operator performs the name unification at the trace type level.
 
+### Example
+
+A Turing-inspire example from [here](https://luiarthur.github.io/TuringBnpBenchmarks/dpsbgmm):
+
+```julia
+@model function stick_breaking_dp_mixture({y}, K)
+    N = length({y})
+
+    {μ} ~ filldist(Normal(0, 3), K)
+    {σ} ~ filldist(Gamma(1, 1/10), K)  # mean = 0.1
+
+    {α} ~ Gamma(1, 1/10)  # mean = 0.1
+    crm = DirichletProcess({α})
+    
+    # we are not really interested in the beta-values `v` from the process, but the
+    # resulting weights `w`!
+    v ~ filldist(StickBreakingProcess(crm), K - 1)
+    {w} = stickbreak(v)
+
+    {z} = filldist(Categorical({w}), N)
+    for n = 1:N
+        {y[n]} ~ Normal({μ[{z[n]}]}, 1.0)
+    end
+end
+```
 
 ## Implementation and Interpretation in Julia
 
