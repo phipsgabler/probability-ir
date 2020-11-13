@@ -315,6 +315,7 @@ Example usages:
 - Transform the model into a form that uses only Soss combinators, and pass it to Soss
 - Give me the model after the intervention `do(Z = z)`
 - Turn this infinite mixture model into a Chinese Restaurant Process with centers `z`, and give me a Turing model for it
+- Give me the log-likelihood function of the model for some observed variables
 
 ## Interpretation in a probability monad
 
