@@ -39,6 +39,10 @@ I think this is feasible also from the end-user perspective, because there is a 
 
 Of these, Gen seems like the best candidate for an abstraction of a "model evaluation interface" for sampling-based approaches.  Omega, Soss, and ForneyLab could make good general evaluators for abstracted models in the IR as well, and Stheno for the fragment of models describing Gaussian Processes (and we could imagine something similar for nonparametric models).  The approaches of Jaynes and Poirot could make a good start for the "front end" -- the way by which a user/modeller writes their model down, and through which it is turned into the intermediate representation.  Jaynes especially also has begun the next step: the transformation from the abstract model to generated evaluation code.
 
+### Other related work
+
+[Oryx](https://www.tensorflow.org/probability/oryx/notebooks/probabilistic_programming), based on JAX, seems to work in a different direction.  Althoug JAX does not work on the IR as input -- it does tracing of pure functions.
+
 
 ## "Single static sampling form"
 
