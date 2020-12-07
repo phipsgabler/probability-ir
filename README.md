@@ -413,3 +413,12 @@ p(w | y, ẑ) = ∫ p(x) p(y | x) p(w | y, ẑ) dx
 ```
 
 This corresponds to my understanding that the `do`-notation would be much better written as a model transformation, always, and not through within probability queries.  Fortunately, with a PPL formulation like this, we always have am explicit model at hand.
+
+
+## Metaphors
+
+I have recently come to a better comparison for this idea: it's a bit like a tactics system in proof assistents. You'd have a programmable metalanguage, symbolically operating on a semantically well-defined, general object language, which helps you iteratively massageing the programs into the form you need.  The user should be given more freedom to play around with the model in symbolic form, by providing a suitable representation + some predefined helpful transformations.
+
+All metaphors are flawed, but here's another one. Imagine you need to solve some classical mechanics problem. You can write down some Lagrangian you invented (= generative model) in a CAS. From that, you use the CAS derive a symbolic Hamiltonian (= conditioned model). Then you take symbolic derivatives and set up Hamilton's equations (= set up a logp for HMC). Now you pass them to some external ODE solver of your choice (= convert to sampler representation).  But you could also, say, do some more analysis on the Hamiltonian, like derive conserved quantities (= extract Gibbs conditionals). Or modify some terms (= interventions). (Note that have never studied physics, though :P)
+
+The point being that we use a separate "transformation helper system", the CAS (= PIR + transformations) to play around with the model before you do any actual sampling work. Tactics systems do the same for programs written in proof-assisntants' languages (Idris, Agda, Coq) -- the elaborator = the CAS = PIR, the actual language's compiler = the ODE solver = sampler.
